@@ -1,0 +1,175 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 800;
+canvas.height = 400;
+
+let player = {
+  x: 100,
+  y: 300,
+  width: 40,
+  height: 40,
+  dy: 0,
+  grounded: true,
+  dashing: false,
+  dashTimer: 0,
+};
+
+let gravity = 0.8;
+let keys = {};
+let score = 0;
+let shards = 0;
+let obstacles = [];
+let messages = [];
+let powers = [];
+
+const backgroundPhases = [
+  "#0a0a0a", "#1c0d1e", "#2a0033", "#3a0055", "#1a1a1a"
+];
+let currentBg = 0;
+
+const echoLore = [
+  "You remember the girl with violet eyes. Was she you?",
+  "The sky cracked like glass the day the Rift opened.",
+  "You fled, not to survive — but to forget.",
+  "Every shard is a sin. Every shard is a chance.",
+  "A voice once whispered, 'You chose this...'",
+  "The Rift is alive. It watches. It judges.",
+  "There was once a sun. Now only echoes remain.",
+  "You abandoned someone. Or everyone.",
+  "Not all power is worth the cost.",
+  "Time is not broken — you are."
+];
+
+function createObstacle() {
+  const height = 20 + Math.random() * 40;
+  obstacles.push({
+    x: canvas.width,
+    y: canvas.height - height,
+    width: 20 + Math.random() * 30,
+    height: height,
+    color: '#6611ff'
+  });
+}
+
+function createShard() {
+  const type = Math.random() < 0.3 ? 'power' : 'memory';
+  powers.push({
+    x: canvas.width + Math.random() * 400,
+    y: 200 + Math.random() * 100,
+    width: 15,
+    height: 15,
+    type,
+    color: type === 'power' ? '#ffd700' : '#00ffff'
+  });
+}
+
+function drawPlayer() {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+}
+
+function drawObstacles() {
+  obstacles.forEach(obs => {
+    ctx.fillStyle = obs.color;
+    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+  });
+}
+
+function drawShards() {
+  powers.forEach(p => {
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.width, p.height);
+  });
+}
+
+function handleInput() {
+  if (keys[' '] && player.grounded) {
+    player.dy = -12;
+    player.grounded = false;
+  }
+  if (keys['Shift'] && !player.dashing) {
+    player.dashing = true;
+    player.dashTimer = 15;
+  }
+}
+
+function updateBackgroundPhase() {
+  if (score % 600 === 0 && currentBg < backgroundPhases.length - 1) {
+    currentBg++;
+  }
+}
+
+function update() {
+  handleInput();
+  score++;
+  updateBackgroundPhase();
+
+  if (score % 100 === 0) createObstacle();
+  if (score % 150 === 0) createShard();
+
+  player.dy += gravity;
+  player.y += player.dy;
+
+  if (player.y + player.height >= canvas.height) {
+    player.y = canvas.height - player.height;
+    player.dy = 0;
+    player.grounded = true;
+  }
+
+  if (player.dashing) {
+    player.x += 10;
+    player.dashTimer--;
+    if (player.dashTimer <= 0) {
+      player.dashing = false;
+      player.x = 100;
+    }
+  }
+
+  obstacles.forEach(obs => {
+    obs.x -= 4;
+  });
+  obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+
+  powers.forEach(p => {
+    p.x -= 4;
+  });
+  powers = powers.filter(p => p.x + p.width > 0);
+
+  powers.forEach(p => {
+    if (
+      player.x < p.x + p.width &&
+      player.x + player.width > p.x &&
+      player.y < p.y + p.height &&
+      player.y + player.height > p.y
+    ) {
+      shards++;
+      const lore = echoLore[Math.floor(Math.random() * echoLore.length)];
+      messages.push(lore);
+      p.x = -999;
+    }
+  });
+}
+
+function draw() {
+  ctx.fillStyle = backgroundPhases[currentBg];
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawPlayer();
+  drawObstacles();
+  drawShards();
+  document.getElementById('score').innerText = `Score: ${score}`;
+  document.getElementById('shards').innerText = `Shards: ${shards}`;
+  if (messages.length > 0) {
+    document.getElementById('message').innerText = messages.pop();
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+document.addEventListener('keydown', e => keys[e.key] = true);
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+gameLoop();
